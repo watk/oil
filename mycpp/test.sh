@@ -108,7 +108,7 @@ unit() {
 
   for b in _test/bin/unit/*.$variant; do
     local log=$log_dir/$(basename $b).log
-    echo "RUN $b : $log"
+    echo "RUN $b > $log"
 
     set +o errexit
     $b >$log 2>&1
