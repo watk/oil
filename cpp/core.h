@@ -105,6 +105,9 @@ class TermState {
   void Restore() {
     assert(0);
   }
+  static constexpr ObjHeader obj_header() {
+    return {};
+  }
 };
 
 // Make the signal queue slab 4096 bytes, including the GC header.  See

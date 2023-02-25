@@ -38,6 +38,11 @@ class Parser {
   void setup(int start);
   bool addtoken(int typ, syntax_asdl::Token* opaque, int ilabel);
 
+  // Unused
+  static constexpr ObjHeader obj_header() {
+    return ObjHeader::ClassFixed(kZeroMask, sizeof(Parser));
+  }
+
   // Probably should delete these
   // void shift(int typ, syntax_asdl::Token* opaque, int newstate);
   // void push(int typ, syntax_asdl::Token* opaque, Tuple2<List<List<Tuple2<int,

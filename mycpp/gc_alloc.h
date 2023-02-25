@@ -75,6 +75,13 @@ class StackRoots {
   int n_;
 };
 
+// struct LayoutGc {
+//   ObjHeader header;
+//   // XXX Don't we need to align the object storage? As in:
+//   // alignas(T) uint8_t place[sizeof(T)];
+//   uint8_t place[1];  // flexible array, for placement new
+// };
+
 // Note:
 // - This function causes code bloat due to template expansion on hundreds of
 //   types.  Could switch to a GC_NEW() macro
@@ -87,21 +94,13 @@ template <typename T, typename... Args>
 T* Alloc(Args&&... args) {
   DCHECK(gHeap.is_initialized_);
 
-  void* place = gHeap.Allocate(sizeof(T));
+  LayoutGc* gc_obj =
+      static_cast<LayoutGc*>(gHeap.Allocate(sizeof(LayoutGc) + sizeof(T)));
+  gc_obj->header = T::obj_header();
 #if MARK_SWEEP
-  // IMPORTANT: save the object ID before calling placement new, which can
-  // invoke Allocate() again!
-  int obj_id = gHeap.UnusedObjectId();
+  gc_obj->header.obj_id = gHeap.UnusedObjectId();
 #endif
-
-  T* obj = new (place) T(std::forward<Args>(args)...);
-
-#if MARK_SWEEP
-  // Hack for now: find the header
-  ObjHeader* header = FindObjHeader(reinterpret_cast<RawObject*>(obj));
-  header->obj_id = obj_id;
-#endif
-  return obj;
+  return new (gc_obj->place) T(std::forward<Args>(args)...);
 }
 
 //
@@ -115,21 +114,23 @@ inline Str* NewStr(int len) {
     return kEmptyString;
   }
 
-  int obj_len = kStrHeaderSize + len + 1;
+  int obj_len = kStrHeaderSize + len + 1;  // NUL terminator
 
-  // only allocation is unconditionally returned
-  void* place = gHeap.Allocate(obj_len);
+  // XXX: We're over allocating the padding at the end of LayoutGc?
+  LayoutGc* gc_obj =
+      static_cast<LayoutGc*>(gHeap.Allocate(sizeof(LayoutGc) + obj_len));
+  gc_obj->header = Str::obj_header();
 
-  auto s = new (place) Str();
+  auto s = new (gc_obj->place) Str();
 #if defined(MARK_SWEEP) || defined(BUMP_LEAK)
   s->len_ = len;
 #else
   // reversed in len() to derive string length
-  s->header_.obj_len = kStrHeaderSize + len + 1;
+  gc_obj->header.obj_len = kStrHeaderSize + len + 1;
 #endif
 
 #if MARK_SWEEP
-  s->header_.obj_id = gHeap.UnusedObjectId();
+  gc_obj->header.obj_id = gHeap.UnusedObjectId();
 #endif
   return s;
 }
@@ -139,10 +140,12 @@ inline Str* NewStr(int len) {
 // s->MaybeShrink() afterward!
 inline Str* OverAllocatedStr(int len) {
   int obj_len = kStrHeaderSize + len + 1;  // NUL terminator
-  void* place = gHeap.Allocate(obj_len);
-  auto s = new (place) Str();
+  LayoutGc* gc_obj =
+      static_cast<LayoutGc*>(gHeap.Allocate(sizeof(LayoutGc) + obj_len));
+  gc_obj->header = Str::obj_header();
+  auto s = new (gc_obj->place) Str();
 #if MARK_SWEEP
-  s->header_.obj_id = gHeap.UnusedObjectId();
+  gc_obj->header.obj_id = gHeap.UnusedObjectId();
 #endif
   return s;
 }
@@ -170,10 +173,12 @@ inline Str* StrFromC(const char* data) {
 template <typename T>
 inline Slab<T>* NewSlab(int len) {
   int obj_len = RoundUp(kSlabHeaderSize + len * sizeof(T));
-  void* place = gHeap.Allocate(obj_len);
-  auto slab = new (place) Slab<T>(len);  // placement new
+  LayoutGc* gc_obj = static_cast<LayoutGc*>(
+      gHeap.Allocate(sizeof(LayoutGc) + obj_len));
+  gc_obj->header = Slab<T>::obj_header(len);
+  auto slab = new (gc_obj->place) Slab<T>(len);  // placement new
 #if MARK_SWEEP
-  slab->header_.obj_id = gHeap.UnusedObjectId();
+  gc_obj->header.obj_id = gHeap.UnusedObjectId();
 #endif
   return slab;
 }

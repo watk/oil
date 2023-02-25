@@ -111,9 +111,11 @@ const int kFieldMaskBits = 16;
 
 // A RawObject* is like a void* -- it can point to any C++ object.  The object
 // may start with either ObjHeader, or vtable pointer then an ObjHeader.
-struct RawObject {
-  unsigned points_to_header : 1;  // same as ObjHeader::is_header
-  unsigned pad : 31;
+struct RawObject {};
+
+struct LayoutGc {
+  ObjHeader header;
+  uint8_t place[1];
 };
 
 // TODO: ./configure could detect endian-ness, and reorder the fields in
@@ -131,33 +133,6 @@ struct RawObject {
   header_ {                                                         \
     kIsHeader, TypeTag::OtherClass, num_pointers, HeapTag::Scanned, \
         kUndefinedId                                                \
-  }
-
-// Used by frontend/flag_gen.py.  TODO: Sort fields and use GC_CLASS_SCANNED
-#define GC_CLASS(header_, heap_tag, field_mask, obj_len)               \
-  header_ {                                                            \
-    kIsHeader, TypeTag::OtherClass, field_mask, heap_tag, kUndefinedId \
-  }
-
-// Used by ASDL.
-#define GC_ASDL_CLASS(header_, type_tag, num_pointers)                \
-  header_ {                                                           \
-    kIsHeader, type_tag, num_pointers, HeapTag::Scanned, kUndefinedId \
-  }
-
-#define GC_STR(header_)                                               \
-  header_ {                                                           \
-    kIsHeader, TypeTag::Str, kZeroMask, HeapTag::Opaque, kUndefinedId \
-  }
-
-#define GC_SLAB(header_, heap_tag, num_pointers)                   \
-  header_ {                                                        \
-    kIsHeader, TypeTag::Slab, num_pointers, heap_tag, kUndefinedId \
-  }
-
-#define GC_TUPLE(header_, field_mask, obj_len)                              \
-  header_ {                                                                 \
-    kIsHeader, TypeTag::Tuple, field_mask, HeapTag::FixedSize, kUndefinedId \
   }
 
 // TODO: could omit this in BUMP_LEAK mode
@@ -200,14 +175,8 @@ constexpr int maskbit_v(int offset) {
 }
 
 inline ObjHeader* FindObjHeader(RawObject* obj) {
-  if (obj->points_to_header) {
-    return reinterpret_cast<ObjHeader*>(obj);
-  } else {
-    // We saw a vtable pointer, so return the ObjHeader* header that
-    // immediately follows.
-    return reinterpret_cast<ObjHeader*>(reinterpret_cast<char*>(obj) +
-                                        sizeof(void*));
-  }
+  return reinterpret_cast<ObjHeader*>(reinterpret_cast<char*>(obj) -
+                                      sizeof(ObjHeader));
 }
 
 // The "homogeneous" layout of objects with HeapTag::FixedSize.  LayoutFixed is
