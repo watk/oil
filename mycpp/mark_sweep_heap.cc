@@ -144,7 +144,7 @@ void MarkSweepHeap::TraceChildren() {
       // XXX: Fix this
       auto fixed = reinterpret_cast<LayoutFixed*>(
           reinterpret_cast<char*>(header) + sizeof(ObjHeader));
-      int mask = FIELD_MASK(*header);
+      int mask = header->u_mask_npointers;
 
       for (int i = 0; i < kFieldMaskBits; ++i) {
         if (mask & (1 << i)) {
@@ -166,7 +166,7 @@ void MarkSweepHeap::TraceChildren() {
       auto slab = reinterpret_cast<Slab<RawObject*>*>(
           reinterpret_cast<char*>(header) + sizeof(ObjHeader));
 
-      int n = NUM_POINTERS(*header);
+      int n = header->u_mask_npointers;
       for (int i = 0; i < n; ++i) {
         RawObject* child = slab->items_[i];
         if (child) {

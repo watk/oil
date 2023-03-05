@@ -98,10 +98,13 @@ struct ObjHeader {
 // TODO: we could determine the max of all objects statically!
 const int kFieldMaskBits = 16;
 
-#if defined(MARK_SWEEP) || defined(BUMP_LEAK)
+#if 0 && defined(MARK_SWEEP) || defined(BUMP_LEAK)
   #define FIELD_MASK(header) (header).u_mask_npointers
   #define NUM_POINTERS(header) (header).u_mask_npointers
 
+#elif 1
+  #define FIELD_MASK(header) header
+  #define NUM_POINTERS(header) header
 #else
   #define FIELD_MASK(header) (header).field_mask
                              // TODO: derive from obj_len
@@ -109,8 +112,7 @@ const int kFieldMaskBits = 16;
     ((header.obj_len - kSlabHeaderSize) / sizeof(void*))
 #endif
 
-// A RawObject* is like a void* -- it can point to any C++ object.  The object
-// may start with either ObjHeader, or vtable pointer then an ObjHeader.
+// A RawObject* is like a void* -- it can point to any C++ object.
 struct RawObject {};
 
 struct LayoutGc {
@@ -121,22 +123,16 @@ struct LayoutGc {
 // TODO: ./configure could detect endian-ness, and reorder the fields in
 // ObjHeader.  See mycpp/demo/gc_header.cc.
 
-// Used by hand-written and generated classes
-#define GC_CLASS_FIXED(header_, field_mask, obj_len)                \
-  header_ {                                                         \
-    kIsHeader, TypeTag::OtherClass, field_mask, HeapTag::FixedSize, \
-        kUndefinedId                                                \
+struct BlackHole {
+  BlackHole(const ObjHeader& h) {
   }
-
-// Classes with no inheritance (e.g. used by mycpp)
-#define GC_CLASS_SCANNED(header_, num_pointers, obj_len)            \
-  header_ {                                                         \
-    kIsHeader, TypeTag::OtherClass, num_pointers, HeapTag::Scanned, \
-        kUndefinedId                                                \
+  const BlackHole& operator|=(int x) {
+    return *this;
   }
+};
 
 // TODO: could omit this in BUMP_LEAK mode
-#define GC_OBJ(var_name) ObjHeader var_name
+#define GC_OBJ(var_name) BlackHole var_name
 
 //
 // Compile-time computation of GC field masks.
@@ -156,9 +152,27 @@ class _DummyObj {  // For maskbit()
 // - _DummyObj is used in case ObjHeader requires padding, then
 //   sizeof(ObjHeader) != offsetof(_DummyObj, first_field_)
 
+#include <stdexcept>
+
+constexpr int maskbit(int offset) noexcept {
+  return 1 << ((offset - offsetof(_DummyObj, first_field_)) / sizeof(void*));
+}
+
+#if 0
 constexpr int maskbit(int offset) {
   return 1 << ((offset - offsetof(_DummyObj, first_field_)) / sizeof(void*));
 }
+#endif
+
+template <typename T>
+class StackGcObj {
+ public:
+  template <typename... Args>
+  StackGcObj(Args&&... args) : obj(std::forward<Args>(args)...) {
+  }
+  ObjHeader header{T::obj_header()};
+  T obj;
+};
 
 class _DummyObj_v {  // For maskbit_v()
  public:
@@ -174,8 +188,13 @@ constexpr int maskbit_v(int offset) {
   return 1 << ((offset - offsetof(_DummyObj_v, first_field_)) / sizeof(void*));
 }
 
-inline ObjHeader* FindObjHeader(RawObject* obj) {
+inline ObjHeader* FindObjHeader(void* obj) {
   return reinterpret_cast<ObjHeader*>(reinterpret_cast<char*>(obj) -
+                                      sizeof(ObjHeader));
+}
+
+inline const ObjHeader* FindObjHeader(const void* obj) {
+  return reinterpret_cast<const ObjHeader*>(reinterpret_cast<const char*>(obj) -
                                       sizeof(ObjHeader));
 }
 

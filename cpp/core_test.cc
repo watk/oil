@@ -281,7 +281,7 @@ TEST signal_safe_test() {
   // Capacity is a ROUND NUMBER from the allocator's POV
   // There's no convenient way to test the obj_len we pass to gHeap.Allocate,
   // but it should be (1022 + 2) * 4.
-  ASSERT_EQ_FMT(1022, signal_safe.pending_signals_->capacity_, "%d");
+  ASSERT_EQ_FMT(1023, signal_safe.pending_signals_->capacity_, "%d");
 
   // Register too many signals
   for (int i = 0; i < pyos::kMaxPendingSignals + 10; ++i) {

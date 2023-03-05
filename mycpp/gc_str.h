@@ -146,7 +146,7 @@ class GlobalStr {
   // buffer of size N).  For initializing global constant instances.
  public:
   ObjHeader header_;
-  ObjHeader dummy_header_;
+  GC_OBJ(hole);
   int hash_value_;
   const char data_[N];
 
@@ -164,9 +164,9 @@ class GlobalStr {
 #define GLOBAL_STR(name, val)                                           \
   GlobalStr<sizeof(val)> _##name = {                                    \
       {kIsHeader, TypeTag::Str, kZeroMask, HeapTag::Global, kIsGlobal}, \
-      {kIsHeader, TypeTag::Str, kZeroMask, HeapTag::Global, kIsGlobal}, \
+      ObjHeader{},                                                      \
       sizeof(val) - 1,                                                  \
       val};                                                             \
-  Str* name = reinterpret_cast<Str*>(&_##name.dummy_header_);
+  Str* name = reinterpret_cast<Str*>(&_##name.hole);
 
 #endif  // MYCPP_GC_STR_H

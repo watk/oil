@@ -112,7 +112,7 @@ class TermState {
 
 // Make the signal queue slab 4096 bytes, including the GC header.  See
 // cpp/core_test.cc.
-const int kMaxPendingSignals = 1022;
+const int kMaxPendingSignals = 1023;
 
 class SignalSafe {
   // State that is shared between the main thread and signal handlers.

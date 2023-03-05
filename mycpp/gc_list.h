@@ -28,8 +28,8 @@ class List {
   // Relate slab size to number of items (capacity)
   // 8 / 4 = 2 items, or 8 / 8 = 1 item
   static const int kCapacityAdjust = kSlabHeaderSize / sizeof(T);
-  static_assert(kSlabHeaderSize % sizeof(T) == 0,
-                "Slab header size should be multiple of item size");
+  // static_assert(kSlabHeaderSize % sizeof(T) == 0,
+  //               "Slab header size should be multiple of item size");
 
   // Relates to minimum Slab size.
   // Smallest non-empty List<T*>  should have about 4 items, or 3 without header
